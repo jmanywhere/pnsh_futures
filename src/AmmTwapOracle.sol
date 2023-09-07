@@ -3,8 +3,9 @@ pragma solidity >=0.8.19;
 
 import "./Errors.sol";
 import "./Whitelist.sol";
-import "./libraries/FixedPoint.sol";
 import "./interfaces/IAmmPair.sol";
+import "./interfaces/IAmmTwapOracle.sol";
+import "./libraries/FixedPoint.sol";
 import "./libraries/AmmLibrary.sol";
 import "./libraries/AmmOracleLibrary.sol";
 
@@ -13,7 +14,7 @@ import "./libraries/AmmOracleLibrary.sol";
 // note this is a singleton oracle and only needs to be deployed once per desired parameter
 // the goal of this oracle is to be always available under all possible update conditions
 // oracle will always use data published outside of the current block
-contract AmmTwapOracle is Whitelist {
+contract AmmTwapOracle is Whitelist, IAmmTwapOracle {
     using FixedPoint for *;
 
     struct Observation {
