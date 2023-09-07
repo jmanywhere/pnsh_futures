@@ -3,6 +3,9 @@ pragma solidity >=0.8.19;
 
 import "./Errors.sol";
 import "./Whitelist.sol";
+import "uniswap-lib/libraries/FixedPoint.sol";
+import "pcs-exchange/interfaces/IPancakePair.sol";
+import "pcs-exchange/libraries/PancakeLibrary.sol";
 
 // fixed window oracle that recomputes the average price for the entire period once every period
 // note that the price average is only guaranteed to be over at least 1 period, but may be over a longer period
@@ -35,7 +38,10 @@ contract PcsSnapshotTwapOracle is Whitelist {
 
     event UpdatePeriodSize(uint32 old_period_size, uint32 period_size);
 
-    constructor(address factory_, uint32 periodSize_) public Ownable() {
+    constructor(
+        address factory_,
+        uint32 periodSize_
+    ) public Whitelist(msg.sender) {
         require(
             periodSize_ > 1 minutes,
             "periodSize must be greater than 60 seconds"
@@ -48,7 +54,9 @@ contract PcsSnapshotTwapOracle is Whitelist {
     }
 
     //Update minimum period before update of a pair
-    function updatePeriodSize(uint32 periodSize_) external onlyOwner {
+    function updatePeriodSize(
+        uint32 periodSize_
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(
             periodSize_ > 1 minutes,
             "periodSize must be greater than 60 seconds"

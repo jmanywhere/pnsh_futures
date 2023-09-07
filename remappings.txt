@@ -4,6 +4,7 @@ forge-std/=lib/forge-std/src/
 openzeppelin-contracts/=lib/openzeppelin-contracts/
 openzeppelin/=lib/openzeppelin-contracts/contracts/
 pancake-smart-contracts/=lib/pancake-smart-contracts/
+uniswap-lib/=lib/solidity-lib/contracts/
 @openzeppelin-contracts/=lib/openzeppelin-contracts/
 @openzeppelin/=lib/openzeppelin-contracts/contracts/
 pcs-exchange/=lib/pancake-smart-contracts/projects/exchange-protocol/contracts/

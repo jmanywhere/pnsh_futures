@@ -13,6 +13,10 @@ contract Whitelist is AccessControlEnumerable {
     bytes32 public constant WHITELIST_ROLE = keccak256("WHITELIST_ROLE");
     mapping(address => bool) public whitelist;
 
+    constructor(address admin) {
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+    }
+
     /**
      * @dev Throws if called by any account that's not whitelisted.
      */
