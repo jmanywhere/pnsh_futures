@@ -3,3 +3,7 @@ erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/
 forge-std/=lib/forge-std/src/
 openzeppelin-contracts/=lib/openzeppelin-contracts/
 openzeppelin/=lib/openzeppelin-contracts/contracts/
+pancake-smart-contracts/=lib/pancake-smart-contracts/
+@openzeppelin-contracts/=lib/openzeppelin-contracts/
+@openzeppelin/=lib/openzeppelin-contracts/contracts/
+pcs-exchange/=lib/pancake-smart-contracts/projects/exchange-protocol/contracts/
