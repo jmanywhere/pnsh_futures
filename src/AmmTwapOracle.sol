@@ -3,16 +3,17 @@ pragma solidity >=0.8.19;
 
 import "./Errors.sol";
 import "./Whitelist.sol";
-import "uniswap-lib/libraries/FixedPoint.sol";
-import "pcs-exchange/interfaces/IPancakePair.sol";
-import "pcs-exchange/libraries/PancakeLibrary.sol";
+import "./libraries/FixedPoint.sol";
+import "./interfaces/IAmmPair.sol";
+import "./libraries/AmmLibrary.sol";
+import "./libraries/AmmOracleLibrary.sol";
 
 // fixed window oracle that recomputes the average price for the entire period once every period
 // note that the price average is only guaranteed to be over at least 1 period, but may be over a longer period
 // note this is a singleton oracle and only needs to be deployed once per desired parameter
 // the goal of this oracle is to be always available under all possible update conditions
 // oracle will always use data published outside of the current block
-contract PcsSnapshotTwapOracle is Whitelist {
+contract AmmTwapOracle is Whitelist {
     using FixedPoint for *;
 
     struct Observation {
@@ -38,10 +39,7 @@ contract PcsSnapshotTwapOracle is Whitelist {
 
     event UpdatePeriodSize(uint32 old_period_size, uint32 period_size);
 
-    constructor(
-        address factory_,
-        uint32 periodSize_
-    ) public Whitelist(msg.sender) {
+    constructor(address factory_, uint32 periodSize_) Whitelist(msg.sender) {
         require(
             periodSize_ > 1 minutes,
             "periodSize must be greater than 60 seconds"
@@ -70,7 +68,7 @@ contract PcsSnapshotTwapOracle is Whitelist {
     // performs chained update calculations on any number of pairs
     //whitelisted to avoid DDOS attacks since new pairs will be registered
     function updatePath(address[] memory path) public onlyWhitelisted {
-        require(path.length >= 2, "PancakeLibrary: INVALID_PATH");
+        require(path.length >= 2, "AmmLibrary: INVALID_PATH");
         for (uint i; i < path.length - 1; i++) {
             update(path[i], path[i + 1]);
         }
@@ -79,10 +77,10 @@ contract PcsSnapshotTwapOracle is Whitelist {
     //updates all pairs registered
     //returns the amount of pairs updated
     function updateAll() public returns (uint updatedPairs) {
-        IPancakePair pair;
+        IAmmPair pair;
         bool success;
         for (uint i; i < registry.length; i++) {
-            pair = IPancakePair(registry[i]);
+            pair = IAmmPair(registry[i]);
             (success, , ) = update(pair.token0(), pair.token1());
             if (success) {
                 updatedPairs++;
@@ -95,7 +93,7 @@ contract PcsSnapshotTwapOracle is Whitelist {
         uint amountIn,
         address[] memory path
     ) public view returns (uint[] memory amounts) {
-        require(path.length >= 2, "PancakeLibrary: INVALID_PATH");
+        require(path.length >= 2, "AmmLibrary: INVALID_PATH");
         amounts = new uint[](path.length);
         amounts[0] = amountIn;
         for (uint i; i < path.length - 1; i++) {
@@ -110,7 +108,7 @@ contract PcsSnapshotTwapOracle is Whitelist {
         uint amountIn,
         address tokenOut
     ) public view returns (uint amountOut) {
-        address pair = PancakeLibrary.pairFor(factory, tokenIn, tokenOut);
+        address pair = AmmLibrary.pairFor(factory, tokenIn, tokenOut);
         Observation storage observation = pairObservation[pair];
 
         require(
@@ -118,7 +116,7 @@ contract PcsSnapshotTwapOracle is Whitelist {
             "PcsPeriodicOracle: PAIR_UNINITIALIZED"
         );
 
-        (address token0, ) = PancakeLibrary.sortTokens(tokenIn, tokenOut);
+        (address token0, ) = AmmLibrary.sortTokens(tokenIn, tokenOut);
 
         uint lapsedBlocks = block.number - observation.commit_block;
 
@@ -146,7 +144,7 @@ contract PcsSnapshotTwapOracle is Whitelist {
         address tokenA,
         address tokenB
     ) private returns (bool success, address pair, uint32 timestamp) {
-        pair = PancakeLibrary.pairFor(factory, tokenA, tokenB);
+        pair = AmmLibrary.pairFor(factory, tokenA, tokenB);
 
         Observation storage observation = pairObservation[pair];
 
@@ -155,10 +153,10 @@ contract PcsSnapshotTwapOracle is Whitelist {
             registry.push(pair);
 
             //get latest historical
-            (, , observation.timestamp) = IPancakePair(pair).getReserves();
-            observation.price0Cumulative = IPancakePair(pair)
+            (, , observation.timestamp) = IAmmPair(pair).getReserves();
+            observation.price0Cumulative = IAmmPair(pair)
                 .price0CumulativeLast();
-            observation.price1Cumulative = IPancakePair(pair)
+            observation.price1Cumulative = IAmmPair(pair)
                 .price1CumulativeLast();
         }
 
@@ -166,7 +164,7 @@ contract PcsSnapshotTwapOracle is Whitelist {
             uint price0Cumulative,
             uint price1Cumulative,
             uint32 blockTimestamp
-        ) = PancakeOracleLibrary.currentCumulativePrices(pair);
+        ) = AmmOracleLibrary.currentCumulativePrices(pair);
 
         // we only want to commit updates once per period (i.e. windowSize / granularity)
         uint32 timeElapsed = blockTimestamp - observation.timestamp;
