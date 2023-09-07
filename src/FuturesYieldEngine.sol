@@ -10,8 +10,8 @@ import "./AddressRegistry.sol";
 import "./interfaces/IFuturesTreasury.sol";
 import "./interfaces/IAmmRouter02.sol";
 import "./interfaces/IReferralReport.sol";
-import "./interfaces/IReferralData.sol";
-import "./interfaces/ISponsorData.sol";
+//import "./interfaces/IReferralData.sol";
+//import "./interfaces/ISponsorData.sol";
 import "./interfaces/IAmmTwapOracle.sol";
 
 contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
@@ -30,21 +30,21 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
 
     IAmmRouter02 public collateralRouter;
 
-    IReferralData public referralData;
-    ISponsorData public sponsorData;
+    //IReferralData public referralData;
+    //ISponsorData public sponsorData;
 
     IAmmTwapOracle public oracle;
 
     event UpdateCollateralRouter(address indexed addr);
-    event NewSponsorship(
+    /*event NewSponsorship(
         address indexed from,
         address indexed to,
         uint256 amount
-    );
+    );*/
 
     event UpdateOracle(address indexed addr);
-    event UpdateReferralData(address indexed addr);
-    event UpdateSponsorData(address indexed addr);
+    //event UpdateReferralData(address indexed addr);
+    //event UpdateSponsorData(address indexed addr);
     event UpdateForceLiquidity(bool value, bool newValue);
 
     /* ========== INITIALIZER ========== */
@@ -72,6 +72,7 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
     }
 
     //@dev Update the referral data for partner rewards
+    /*
     function updateReferralData(
         address referralDataAddress
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -97,7 +98,7 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
         sponsorData = ISponsorData(sponsorDataAddress);
 
         emit UpdateSponsorData(sponsorDataAddress);
-    }
+    }*/
 
     //@dev Forces the yield engine to topoff liquidity in the collateral buffer on every tx
     //a test harness
@@ -173,11 +174,13 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
             );
         }
 
+        /*
         //Calculate user referral rewards
         uint _referrals = _amount / 100;
 
         //Add referral bonus for referrer, 1%
         _processReferralBonus(_user, _referrals, msg.sender);
+        */
 
         //Send collateral to user
         collateralBufferPool.withdrawTo(_user, _amount);
@@ -186,7 +189,7 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
     }
 
     /********** Internal Fuctions **************************************************/
-
+    /*
     //@dev Add referral bonus if applicable
     function _processReferralBonus(
         address _user,
@@ -213,7 +216,7 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
 
         emit NewSponsorship(_user, _referrer, _share);
         emit NewSponsorship(_referrer, _user, _share);
-    }
+    }*/
 
     function estimateCollateralToCore(
         uint collateralAmount

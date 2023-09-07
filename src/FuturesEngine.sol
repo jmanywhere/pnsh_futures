@@ -6,7 +6,7 @@ import "openzeppelin/utils/math/Math.sol";
 import "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import "openzeppelin/token/ERC20/IERC20.sol";
 import "./FuturesVault.sol";
-import "./interfaces/IReferralReport.sol";
+//import "./interfaces/IReferralReport.sol";
 import "./interfaces/IFuturesTreasury.sol";
 import "./interfaces/IFuturesYieldEngine.sol";
 import "./AddressRegistry.sol";
@@ -14,7 +14,8 @@ import "./AddressRegistry.sol";
 //@dev  Business logic for Futures
 //Engine can be swapped out if upgrades are needed
 //Only yield infrastructure and vault can be updated
-contract FuturesEngine is Ownable, IReferralReport {
+//TODO: Needs IReferralReport implementation
+contract FuturesEngine is Ownable {
     using SafeERC20 for IERC20;
     using Math for uint256;
     AddressRegistry private _registry;
@@ -213,7 +214,7 @@ contract FuturesEngine is Ownable, IReferralReport {
 
         success = _distributeYield(_user);
     }
-
+/*
     //@dev Implements the IReferralReport interface which is called by the FarmEngine yield function back to the caller
     function rewardDistribution(
         address _referrer,
@@ -250,7 +251,7 @@ contract FuturesEngine is Ownable, IReferralReport {
 
         emit RewardDistribution(_referrer, _user, _referrerReward, _userReward);
     }
-
+*/
     //@dev Returns tax bracket and adjusted amount based on the bracket
     function available(
         address _user
