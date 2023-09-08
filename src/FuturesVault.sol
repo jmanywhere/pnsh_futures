@@ -50,6 +50,5 @@ contract FuturesVault is Whitelist {
         _globals.totalRewards = globals.totalRewards;
         _globals.totalTxs = globals.totalTxs;
         _globals.currentBalance = globals.currentBalance;
-        _users[user].currentApr = userData.currentApr;
     }
 }
