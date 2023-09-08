@@ -7,6 +7,7 @@ struct FuturesUser {
     uint deposits; //total inbound deposits
     uint compoundDeposits; //compound deposit; not fresh capital
     uint currentBalance; //current balance
+    uint currentApr; //current apr
     uint payouts; //total yield payouts across all farms
     uint rewards; //partner rewards
     uint lastTime; //last interaction
@@ -20,4 +21,5 @@ struct FuturesGlobals {
     uint256 totalRewards;
     uint256 totalTxs;
     uint256 currentBalance;
+    uint256 currentApr; //current apr
 }

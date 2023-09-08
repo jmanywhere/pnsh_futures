@@ -23,7 +23,7 @@ contract FuturesEngine is Ownable {
     //Financial Model
     uint256 public constant REFERENCE_APR = 182.5e18; //0.5% daily
     uint256 public constant MAX_BALANCE = 1000000e18; //1M
-    uint256 public constant MAX_TICS = 8; //Multiply by min deposit to get max APR of 0.5% daily
+    uint256 public constant MAX_TICKS = 8; //Multiply by min deposit to get max APR of 0.5% daily
     uint256 public constant MIN_DEPOSIT = 25e18; //200+ deposits; will compound available rewards
     uint256 public constant MAX_AVAILABLE = 50000e18; //50K max claim daily, 10 days missed claims
     uint256 public constant MAX_PAYOUTS = (MAX_BALANCE * 5e18) / 2e18; //2.5M
@@ -66,7 +66,6 @@ contract FuturesEngine is Ownable {
     ////  User Functions ////
 
     //@dev Deposit BUSD in exchange for TRUNK at the current TWAP price
-    //Is not available if the system is paused
     function deposit(uint _amount) external {
         //Only the key holder can invest their funds
         address user = msg.sender;
@@ -82,6 +81,9 @@ contract FuturesEngine is Ownable {
             "max balance exceeded"
         );
         require(userData.payouts <= MAX_PAYOUTS, "max payouts exceeded");
+
+        uint ticks = MAX_TICKS.min(_amount / MIN_DEPOSIT); //1 to 8 ticks for apr
+        uint userApr = (REFERENCE_APR * ticks) / 8;
 
         uint share = _amount / 100;
 
@@ -139,6 +141,7 @@ contract FuturesEngine is Ownable {
         userData.deposits += _amount;
         userData.lastTime = block.timestamp;
         userData.currentBalance += _amount;
+        userData.currentApr = userApr;
 
         globalsData.totalDeposited += _amount;
         globalsData.currentBalance += _amount;
@@ -222,7 +225,7 @@ contract FuturesEngine is Ownable {
         if (userData.currentBalance > 0) {
             //Using 1e18 we capture all significant digits when calculating available divs
             share =
-                (userData.currentBalance * REFERENCE_APR) / //payout is asymptotic and uses the current balance //convert to daily apr
+                (userData.currentBalance * userData.currentApr) / //payout is asymptotic and uses the current balance //convert to daily apr
                 (365 * 100e18) /
                 24 hours; //divide the profit by payout rate and seconds in the day;
             _adjustedAmount = share * (block.timestamp - userData.lastTime);
@@ -376,6 +379,7 @@ contract FuturesEngine is Ownable {
         newData.exists = true;
         newData.deposits = userData.deposits;
         newData.currentBalance = userData.currentBalance;
+        newData.currentApr = userData.currentApr;
         newData.payouts = userData.payouts;
         newData.compoundDeposits = userData.compoundDeposits;
         newData.rewards = userData.rewards;
@@ -385,6 +389,7 @@ contract FuturesEngine is Ownable {
         userData.exists = false;
         userData.deposits = 0;
         userData.currentBalance = 0;
+        userData.currentApr = 0;
         userData.compoundDeposits = 0;
         userData.payouts = 0;
         userData.rewards = 0;

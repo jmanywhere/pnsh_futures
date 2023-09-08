@@ -32,6 +32,7 @@ contract FuturesVault is Whitelist {
         _users[user].deposits = userData.deposits;
         _users[user].compoundDeposits = userData.compoundDeposits;
         _users[user].currentBalance = userData.currentBalance;
+        _users[user].currentApr = userData.currentApr;
         _users[user].payouts = userData.payouts;
         _users[user].rewards = userData.rewards;
         _users[user].lastTime = userData.lastTime;
@@ -49,5 +50,6 @@ contract FuturesVault is Whitelist {
         _globals.totalRewards = globals.totalRewards;
         _globals.totalTxs = globals.totalTxs;
         _globals.currentBalance = globals.currentBalance;
+        _users[user].currentApr = userData.currentApr;
     }
 }
