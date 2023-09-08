@@ -23,19 +23,10 @@ contract FuturesEngine is Ownable {
     //Financial Model
     uint256 public constant REFERENCE_APR = 182.5e18; //0.5% daily
     uint256 public constant MAX_BALANCE = 1000000e18; //1M
-    uint256 public constant MIN_DEPOSIT = 200e18; //200+ deposits; will compound available rewards
+    uint256 public constant MAX_TICS = 8; //Multiply by min deposit to get max APR of 0.5% daily
+    uint256 public constant MIN_DEPOSIT = 25e18; //200+ deposits; will compound available rewards
     uint256 public constant MAX_AVAILABLE = 50000e18; //50K max claim daily, 10 days missed claims
     uint256 public constant MAX_PAYOUTS = (MAX_BALANCE * 5e18) / 2e18; //2.5M
-
-    //Immutable long term network contracts
-    IFuturesTreasury public immutable collateralBufferPool;
-    IFuturesTreasury public immutable collateralTreasury;
-    IERC20 public immutable collateralToken;
-
-    //Updatable components
-    IFuturesYieldEngine public yieldEngine;
-    FuturesVault public vault;
-    bool public enforceMinimum = false;
 
     //events
     event Deposit(address indexed user, uint256 amount);
@@ -52,67 +43,24 @@ contract FuturesEngine is Ownable {
         uint referrerReward,
         uint userReward
     );
-    event UpdateYieldEngine(address prevEngine, address engine);
-    event UpdateVault(address prevVault, address vault);
-    event UpdateEnforceMinimum(bool prevValue, bool value);
 
-    //@dev Creates a FuturesEngine that contains upgradeable business logic for Futures Vault
-    constructor() Ownable() {
-        //init reg
-        _registry = new AddressRegistry();
-
-        /* mythx-disable SWC-113 */
-
-        //setup the core tokens
-        collateralToken = IERC20(_registry.collateralAddress());
-
-        //treasury setup
-        collateralTreasury = IFuturesTreasury(
-            _registry.collateralTreasuryAddress()
-        );
-        collateralBufferPool = IFuturesTreasury(
-            _registry.collateralBufferAddress()
-        );
-
-        /* mythx-enable */
+    //@dev Creates a FuturesEngine
+    constructor(AddressRegistry registry) Ownable() {
+        _registry = registry;
     }
 
     //Administrative//
-
-    function updateEnforceMinimum(bool _enforceMinimum) external onlyOwner {
-        emit UpdateEnforceMinimum(enforceMinimum, _enforceMinimum);
-
-        enforceMinimum = _enforceMinimum;
-    }
-
-    //@dev Update the FuturesVault
-    function updateFuturesVault(address _vault) external onlyOwner {
-        require(_vault != address(0), "vault must be non-zero");
-
-        emit UpdateVault(address(vault), _vault);
-
-        vault = FuturesVault(_vault);
-    }
-
-    //@dev Update the farm engine which is used for quotes, yield calculations / distribution
-    function updateYieldEngine(address _engine) external onlyOwner {
-        require(_engine != address(0), "engine must be non-zero");
-
-        emit UpdateYieldEngine(address(yieldEngine), _engine);
-
-        yieldEngine = IFuturesYieldEngine(_engine);
-    }
 
     ///  Views  ///
 
     //@dev Get User info
     function getUser(address _user) external view returns (FuturesUser memory) {
-        return vault.getUser(_user);
+        return FuturesVault(_registry.futuresVault()).getUser(_user);
     }
 
     //@dev Get contract snapshot
     function getInfo() external view returns (FuturesGlobals memory) {
-        return vault.getGlobals();
+        return FuturesVault(_registry.futuresVault()).getGlobals();
     }
 
     ////  User Functions ////
@@ -121,42 +69,48 @@ contract FuturesEngine is Ownable {
     //Is not available if the system is paused
     function deposit(uint _amount) external {
         //Only the key holder can invest their funds
-        address _user = msg.sender;
+        address user = msg.sender;
 
-        FuturesUser memory userData = vault.getUser(_user);
+        FuturesVault vault = FuturesVault(_registry.futuresVault());
+
+        FuturesUser memory userData = vault.getUser(user);
         FuturesGlobals memory globalsData = vault.getGlobals();
 
-        require(
-            _amount >= MIN_DEPOSIT || enforceMinimum == false,
-            "amount less than minimum deposit"
-        );
+        require(_amount >= MIN_DEPOSIT, "amount less than minimum deposit");
         require(
             userData.currentBalance + _amount <= MAX_BALANCE,
             "max balance exceeded"
         );
         require(userData.payouts <= MAX_PAYOUTS, "max payouts exceeded");
 
-        uint _share = _amount / 100;
-        uint _treasuryAmount;
-        uint _bufferAmount;
+        uint share = _amount / 100;
 
-        //90% goes directly to the treasury
+        //75% goes directly to the treasury
+        //2/3 will buy pNSH (50%), 1/3 will mint pNSH lp (25%)
+        uint treasuryAmount = share * 50;
+        // 15% to Bufferpool
+        uint bufferAmount = share - 15;
+        // 10% to PCR
+        uint pcrAmount = share - treasuryAmount - bufferAmount;
 
-        _treasuryAmount = _share * 90;
-        _bufferAmount = _amount - _treasuryAmount;
-
-        //Transfer BUSD to the BUSD Treasury
+        //Transfer collat to the collat Treasury
+        IERC20 collateralToken = IERC20(_registry.collateralAddress());
         collateralToken.safeTransferFrom(
-            _user,
-            address(collateralTreasury),
-            _treasuryAmount
+            user,
+            _registry.collateralTreasury(),
+            treasuryAmount
         );
 
-        //Transfer 10% to Bufferpool
         collateralToken.safeTransferFrom(
-            _user,
-            address(collateralBufferPool),
-            _bufferAmount
+            user,
+            _registry.collateralBufferPool(),
+            bufferAmount
+        );
+
+        collateralToken.safeTransferFrom(
+            user,
+            _registry.pcrTreasury(),
+            pcrAmount
         );
 
         //update user stats
@@ -166,7 +120,7 @@ contract FuturesEngine is Ownable {
             globalsData.totalUsers += 1;
 
             //commit updates
-            vault.commitUser(_user, userData);
+            vault.commitUser(user, userData);
             vault.commitGlobals(globalsData);
         }
 
@@ -174,10 +128,10 @@ contract FuturesEngine is Ownable {
         //optimistically claim yield before reset
         //if there is a balance we potentially have yield
         if (userData.currentBalance > 0) {
-            _compoundYield(_user);
+            _compoundYield(user);
 
             //reload user data after a mutable function
-            userData = vault.getUser(_user);
+            userData = vault.getUser(user);
             globalsData = vault.getGlobals();
         }
 
@@ -191,19 +145,20 @@ contract FuturesEngine is Ownable {
         globalsData.totalTxs += 1;
 
         //commit updates
-        vault.commitUser(_user, userData);
+        vault.commitUser(user, userData);
         vault.commitGlobals(globalsData);
 
         //events
-        emit Deposit(_user, _amount);
+        emit Deposit(user, _amount);
     }
 
     //@dev Claims earned interest for the caller
     function claim() external returns (bool success) {
         //Only the owner of funds can claim funds
-        address _user = msg.sender;
+        address user = msg.sender;
 
-        FuturesUser memory userData = vault.getUser(_user);
+        FuturesVault vault = FuturesVault(_registry.futuresVault());
+        FuturesUser memory userData = vault.getUser(user);
 
         //checks
         require(userData.exists, "User is not registered");
@@ -212,9 +167,10 @@ contract FuturesEngine is Ownable {
             "balance is required to earn yield"
         );
 
-        success = _distributeYield(_user);
+        success = _distributeYield(user);
     }
-/*
+
+    /*
     //@dev Implements the IReferralReport interface which is called by the FarmEngine yield function back to the caller
     function rewardDistribution(
         address _referrer,
@@ -257,6 +213,7 @@ contract FuturesEngine is Ownable {
         address _user
     ) public view returns (uint256 _limiterRate, uint256 _adjustedAmount) {
         //Load data
+        FuturesVault vault = FuturesVault(_registry.futuresVault());
         FuturesUser memory userData = vault.getUser(_user);
 
         //calculate gross available
@@ -304,6 +261,10 @@ contract FuturesEngine is Ownable {
     //distributes only when yield is positive
     //inputs are validated by external facing functions
     function _distributeYield(address _user) private returns (bool success) {
+        FuturesVault vault = FuturesVault(_registry.futuresVault());
+        IFuturesYieldEngine yieldEngine = IFuturesYieldEngine(
+            _registry.yieldEngine()
+        );
         FuturesUser memory userData = vault.getUser(_user);
         FuturesGlobals memory globalsData = vault.getGlobals();
 
@@ -352,6 +313,7 @@ contract FuturesEngine is Ownable {
     //@dev Checks if yield is available and compound before performing additional operations
     //compound only when yield is positive
     function _compoundYield(address _user) private returns (bool success) {
+        FuturesVault vault = FuturesVault(_registry.futuresVault());
         FuturesUser memory userData = vault.getUser(_user);
         FuturesGlobals memory globalsData = vault.getGlobals();
 
@@ -396,9 +358,10 @@ contract FuturesEngine is Ownable {
 
     //@dev Transfer account to another wallet address
     function transfer(address _newUser) external {
-        address _user = msg.sender;
+        address user = msg.sender;
+        FuturesVault vault = FuturesVault(_registry.futuresVault());
 
-        FuturesUser memory userData = vault.getUser(_user);
+        FuturesUser memory userData = vault.getUser(user);
         FuturesUser memory newData = vault.getUser(_newUser);
         FuturesGlobals memory globalsData = vault.getGlobals();
 
@@ -431,11 +394,11 @@ contract FuturesEngine is Ownable {
         globalsData.totalTxs += 1;
 
         //commit
-        vault.commitUser(_user, userData);
+        vault.commitUser(user, userData);
         vault.commitUser(_newUser, newData);
         vault.commitGlobals(globalsData);
 
         //log
-        emit Transfer(_user, _newUser, newData.currentBalance);
+        emit Transfer(user, _newUser, newData.currentBalance);
     }
 }
