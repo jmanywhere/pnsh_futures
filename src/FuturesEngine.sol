@@ -18,7 +18,7 @@ import "./AddressRegistry.sol";
 contract FuturesEngine is Ownable {
     using SafeERC20 for IERC20;
     using Math for uint256;
-    AddressRegistry private _registry;
+    AddressRegistry private immutable _registry;
 
     //Financial Model
     uint256 public constant REFERENCE_APR = 182.5e18; //0.5% daily
@@ -87,28 +87,24 @@ contract FuturesEngine is Ownable {
 
         uint share = _amount / 100;
 
-        //75% goes directly to the treasury
-        //2/3 will buy pNSH (50%), 1/3 will mint pNSH lp (25%)
-        uint treasuryAmount = share * 50;
+        //50% buy pNSH + 25% mint pNSH/collat lp
+        uint treasuryAmount = share * 75;
         // 15% to Bufferpool
         uint bufferAmount = share - 15;
         // 10% to PCR
         uint pcrAmount = share - treasuryAmount - bufferAmount;
 
-        //Transfer collat to the collat Treasury
         IERC20 collateralToken = IERC20(_registry.collateralAddress());
         collateralToken.safeTransferFrom(
             user,
             _registry.collateralTreasury(),
             treasuryAmount
         );
-
         collateralToken.safeTransferFrom(
             user,
             _registry.collateralBufferPool(),
             bufferAmount
         );
-
         collateralToken.safeTransferFrom(
             user,
             _registry.pcrTreasury(),

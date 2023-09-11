@@ -8,6 +8,10 @@ contract AddressRegistry {
         address(0xE283D0e3B8c102BAdF5E8166B73E02D96d92F688); //protocol token
     address public coreTreasuryAddress =
         address(0xAF0980A0f52954777C491166E7F40DB2B6fBb4Fc); //protocol token Treasury
+    address public coreLpAddress =
+        address(0xAF0980A0f52954777C491166E7F40DB2B6fBb4Fc); //core/collateral LP
+    address public coreLpTreasuryAddress =
+        address(0xAF0980A0f52954777C491166E7F40DB2B6fBb4Fc); //protocol token LP Treasury
     address public collateralAddress =
         address(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56); //collateral token
     address public collateralTreasury =

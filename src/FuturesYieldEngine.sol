@@ -18,17 +18,9 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
-    AddressRegistry private _registry;
-
-    IFuturesTreasury public immutable collateralBufferPool;
-    IFuturesTreasury public immutable collateralTreasury;
-    IFuturesTreasury public immutable coreTreasury;
-    IERC20 public immutable collateralToken;
-    IERC20 public immutable coreToken;
+    AddressRegistry private immutable _registry;
 
     bool public forceLiquidity = true;
-
-    IAmmRouter02 public collateralRouter;
 
     //IReferralData public referralData;
     //ISponsorData public sponsorData;
@@ -49,26 +41,13 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
 
     /* ========== INITIALIZER ========== */
 
-    constructor() Whitelist(msg.sender) {
+    constructor(AddressRegistry registry) Whitelist(msg.sender) {
         //init reg
-        _registry = new AddressRegistry();
+        _registry = registry;
 
         //setup the core tokens
-        coreToken = IERC20(_registry.coreAddress());
-        collateralToken = IERC20(_registry.collateralAddress());
-
-        //the collateral router can be upgraded in the future
-        collateralRouter = IAmmRouter02(_registry.routerAddress());
 
         //treasury setup
-        collateralTreasury = IFuturesTreasury(
-            _registry.collateralTreasuryAddress()
-        );
-
-        collateralBufferPool = IFuturesTreasury(
-            _registry.collateralBufferAddress()
-        );
-        coreTreasury = IFuturesTreasury(_registry.coreTreasuryAddress());
     }
 
     //@dev Update the referral data for partner rewards
@@ -109,16 +88,6 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
         forceLiquidity = _force;
     }
 
-    //@dev Update Core collateral liquidity can move from one contract location to another across major PCS releases
-    function updateCollateralRouter(
-        address _router
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_router != address(0), "Router must be set");
-        collateralRouter = IAmmRouter02(_router);
-
-        emit UpdateCollateralRouter(_router);
-    }
-
     //@dev Update the oracle used for price info
     function updateOracle(
         address oracleAddress
@@ -127,6 +96,9 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
             oracleAddress != address(0),
             "Require valid non-zero addresses"
         );
+        IAmmRouter02 collateralRouter = IAmmRouter02(_registry.routerAddress());
+        IERC20 coreToken = IERC20(_registry.coreAddress());
+        IERC20 collateralToken = IERC20(_registry.collateralAddress());
 
         //the main oracle
         oracle = IAmmTwapOracle(oracleAddress);
@@ -153,7 +125,10 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
         if (_amount == 0) {
             return 0;
         }
-
+        IERC20 collateralToken = IERC20(_registry.collateralAddress());
+        IFuturesTreasury collateralBufferPool = IFuturesTreasury(
+            _registry.collateralBufferPool()
+        );
         //CollateralBuffer should be large enough to support daily yield
         uint256 cbShare = collateralToken.balanceOf(
             address(collateralBufferPool)
@@ -221,6 +196,9 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
     function estimateCollateralToCore(
         uint collateralAmount
     ) public view returns (uint wethAmount, uint coreAmount) {
+        IERC20 collateralToken = IERC20(_registry.collateralAddress());
+        IERC20 coreToken = IERC20(_registry.coreAddress());
+        IAmmRouter02 collateralRouter = IAmmRouter02(_registry.routerAddress());
         //Convert from collateral to core using oracle
         address[] memory path = new address[](3);
         path[0] = address(collateralToken);
@@ -243,6 +221,12 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
         uint256 _amount
     ) private returns (uint collateralAmount) {
         //Convert from collateral to backed
+        IERC20 coreToken = IERC20(_registry.coreAddress());
+        IERC20 collateralToken = IERC20(_registry.collateralAddress());
+        IAmmRouter02 collateralRouter = IAmmRouter02(_registry.routerAddress());
+        IFuturesTreasury coreTreasury = IFuturesTreasury(
+            _registry.coreTreasuryAddress()
+        );
         address[] memory path = new address[](3);
 
         path[0] = address(coreToken);

@@ -2,6 +2,7 @@
 pragma solidity >=0.8.19;
 
 import "openzeppelin/access/AccessControlEnumerable.sol";
+import "openzeppelin/token/ERC20/IERC20.sol";
 import "./Errors.sol";
 
 /**
@@ -41,5 +42,14 @@ contract Whitelist is AccessControlEnumerable {
         for (uint256 i = 0; i < addrs.length; i++) {
             _revokeRole(WHITELIST_ROLE, addrs[i]);
         }
+    }
+
+    function recoverERC20(
+        address tokenAddress
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        IERC20(tokenAddress).transfer(
+            _msgSender(),
+            IERC20(tokenAddress).balanceOf(address(this))
+        );
     }
 }
