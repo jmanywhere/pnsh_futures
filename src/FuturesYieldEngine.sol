@@ -96,9 +96,9 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
             oracleAddress != address(0),
             "Require valid non-zero addresses"
         );
-        IAmmRouter02 collateralRouter = IAmmRouter02(_registry.routerAddress());
-        IERC20 coreToken = IERC20(_registry.coreAddress());
-        IERC20 collateralToken = IERC20(_registry.collateralAddress());
+        IAmmRouter02 collateralRouter = registryAmmRouter();
+        IERC20 coreToken = registryCoreToken();
+        IERC20 collateralToken = registryCollateralToken();
 
         //the main oracle
         oracle = IAmmTwapOracle(oracleAddress);
@@ -125,10 +125,8 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
         if (_amount == 0) {
             return 0;
         }
-        IERC20 collateralToken = IERC20(_registry.collateralAddress());
-        IFuturesTreasury collateralBufferPool = IFuturesTreasury(
-            _registry.collateralBufferPool()
-        );
+        IERC20 collateralToken = registryCollateralToken();
+        IFuturesTreasury collateralBufferPool = registryCollateralBufferPool();
         //CollateralBuffer should be large enough to support daily yield
         uint256 cbShare = collateralToken.balanceOf(
             address(collateralBufferPool)
@@ -196,9 +194,9 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
     function estimateCollateralToCore(
         uint collateralAmount
     ) public view returns (uint wethAmount, uint coreAmount) {
-        IERC20 collateralToken = IERC20(_registry.collateralAddress());
-        IERC20 coreToken = IERC20(_registry.coreAddress());
-        IAmmRouter02 collateralRouter = IAmmRouter02(_registry.routerAddress());
+        IERC20 collateralToken = registryCollateralToken();
+        IERC20 coreToken = registryCoreToken();
+        IAmmRouter02 collateralRouter = registryAmmRouter();
         //Convert from collateral to core using oracle
         address[] memory path = new address[](3);
         path[0] = address(collateralToken);
@@ -221,12 +219,10 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
         uint256 _amount
     ) private returns (uint collateralAmount) {
         //Convert from collateral to backed
-        IERC20 coreToken = IERC20(_registry.coreAddress());
-        IERC20 collateralToken = IERC20(_registry.collateralAddress());
-        IAmmRouter02 collateralRouter = IAmmRouter02(_registry.routerAddress());
-        IFuturesTreasury coreTreasury = IFuturesTreasury(
-            _registry.coreTreasuryAddress()
-        );
+        IERC20 coreToken = registryCoreToken();
+        IERC20 collateralToken = registryCollateralToken();
+        IAmmRouter02 collateralRouter = registryAmmRouter();
+        IFuturesTreasury coreTreasury = registryCoreTreasury();
         address[] memory path = new address[](3);
 
         path[0] = address(coreToken);
@@ -252,5 +248,43 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
         collateralAmount =
             collateralToken.balanceOf(destination) -
             initialBalance;
+    }
+
+    function registryAmmRouter() public view returns (IAmmRouter02) {
+        return
+            IAmmRouter02(
+                _registry.get(keccak256(abi.encodePacked("AMM_ROUTER")))
+            );
+    }
+
+    function registryCollateralToken() public view returns (IERC20) {
+        return
+            IERC20(
+                _registry.get(keccak256(abi.encodePacked("COLLATERAL_TOKEN")))
+            );
+    }
+
+    function registryCoreToken() public view returns (IERC20) {
+        return IERC20(_registry.get(keccak256(abi.encodePacked("CORE_TOKEN"))));
+    }
+
+    function registryCollateralBufferPool()
+        public
+        view
+        returns (IFuturesTreasury)
+    {
+        return
+            IFuturesTreasury(
+                _registry.get(
+                    keccak256(abi.encodePacked("COLLATERAL_BUFFERPOOL"))
+                )
+            );
+    }
+
+    function registryCoreTreasury() public view returns (IFuturesTreasury) {
+        return
+            IFuturesTreasury(
+                _registry.get(keccak256(abi.encodePacked("CORE_TREASURY")))
+            );
     }
 }

@@ -7,8 +7,8 @@ contract Treasury is Whitelist {
     IERC20 public token; // address of the BEP20 token traded on this contract
 
     //There can  be a general purpose treasury for any BEP20 token
-    constructor(IERC20 tokenAddr) public Ownable() {
-        token = IToken(tokenAddr);
+    constructor(IERC20 tokenAddr) Whitelist(msg.sender) {
+        token = IERC20(tokenAddr);
     }
 
     function withdraw(uint256 _amount) public onlyWhitelisted {

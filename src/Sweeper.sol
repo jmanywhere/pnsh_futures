@@ -17,13 +17,11 @@ contract Sweeper is Ownable {
     }
 
     function sweep() external onlyOwner {
-        IFuturesTreasury collateralTreasury = IFuturesTreasury(
-            _registry.collateralTreasury()
-        );
+        IFuturesTreasury collateralTreasury = registryCollateralTreasury();
 
-        IERC20 collateralToken = IERC20(_registry.collateralAddress());
-        IERC20 coreToken = IERC20(_registry.coreAddress());
-        IAmmRouter02 collateralRouter = IAmmRouter02(_registry.routerAddress());
+        IERC20 collateralToken = registryCollateralToken();
+        IERC20 coreToken = registryCoreToken();
+        IAmmRouter02 collateralRouter = registryAmmRouter();
 
         //Spend 5/6 on core (2/3 on core, 1/6 on core lp)
         collateralTreasury.withdraw(
@@ -48,7 +46,7 @@ contract Sweeper is Ownable {
         );
         //send 4/5 to treasury (2/3 of the original asset)
         coreToken.transfer(
-            _registry.coreTreasuryAddress(),
+            registryCoreTreasury(),
             (coreToken.balanceOf(address(this)) * 4) / 5
         );
 
@@ -60,7 +58,7 @@ contract Sweeper is Ownable {
             collateralToken.balanceOf(address(this)), //uint256 amountBDesired,
             0, //uint256 amountAMin,
             0, //uint256 amountBMin,
-            _registry.coreLpTreasuryAddress(), //address to,
+            registryCoreLpTreasury(), //address to,
             block.timestamp //uint256 deadline
         );
     }
@@ -70,5 +68,44 @@ contract Sweeper is Ownable {
             _msgSender(),
             IERC20(tokenAddress).balanceOf(address(this))
         );
+    }
+
+    function registryAmmRouter() public view returns (IAmmRouter02) {
+        return
+            IAmmRouter02(
+                _registry.get(keccak256(abi.encodePacked("AMM_ROUTER")))
+            );
+    }
+
+    function registryCollateralToken() public view returns (IERC20) {
+        return
+            IERC20(
+                _registry.get(keccak256(abi.encodePacked("COLLATERAL_TOKEN")))
+            );
+    }
+
+    function registryCoreToken() public view returns (IERC20) {
+        return IERC20(_registry.get(keccak256(abi.encodePacked("CORE_TOKEN"))));
+    }
+
+    function registryCoreTreasury() public view returns (address) {
+        return _registry.get(keccak256(abi.encodePacked("CORE_TREASURY")));
+    }
+
+    function registryCoreLpTreasury() public view returns (address) {
+        return _registry.get(keccak256(abi.encodePacked("CORE_LP_TREASURY")));
+    }
+
+    function registryCollateralTreasury()
+        public
+        view
+        returns (IFuturesTreasury)
+    {
+        return
+            IFuturesTreasury(
+                _registry.get(
+                    keccak256(abi.encodePacked("COLLATERAL_TREASURY"))
+                )
+            );
     }
 }

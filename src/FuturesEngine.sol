@@ -55,12 +55,12 @@ contract FuturesEngine is Ownable {
 
     //@dev Get User info
     function getUser(address _user) external view returns (FuturesUser memory) {
-        return FuturesVault(_registry.futuresVault()).getUser(_user);
+        return registryFuturesVault().getUser(_user);
     }
 
     //@dev Get contract snapshot
     function getInfo() external view returns (FuturesGlobals memory) {
-        return FuturesVault(_registry.futuresVault()).getGlobals();
+        return registryFuturesVault().getGlobals();
     }
 
     ////  User Functions ////
@@ -70,7 +70,7 @@ contract FuturesEngine is Ownable {
         //Only the key holder can invest their funds
         address user = msg.sender;
 
-        FuturesVault vault = FuturesVault(_registry.futuresVault());
+        FuturesVault vault = registryFuturesVault();
 
         FuturesUser memory userData = vault.getUser(user);
         FuturesGlobals memory globalsData = vault.getGlobals();
@@ -94,20 +94,20 @@ contract FuturesEngine is Ownable {
         // 10% to PCR
         uint pcrAmount = share - treasuryAmount - bufferAmount;
 
-        IERC20 collateralToken = IERC20(_registry.collateralAddress());
+        IERC20 collateralToken = registryCollateralToken();
         collateralToken.safeTransferFrom(
             user,
-            _registry.collateralTreasury(),
+            registryCollateralTreasury(),
             treasuryAmount
         );
         collateralToken.safeTransferFrom(
             user,
-            _registry.collateralBufferPool(),
+            registryCollateralBufferPool(),
             bufferAmount
         );
         collateralToken.safeTransferFrom(
             user,
-            _registry.pcrTreasury(),
+            registryPcrTreasury(),
             pcrAmount
         );
 
@@ -156,7 +156,7 @@ contract FuturesEngine is Ownable {
         //Only the owner of funds can claim funds
         address user = msg.sender;
 
-        FuturesVault vault = FuturesVault(_registry.futuresVault());
+        FuturesVault vault = registryFuturesVault();
         FuturesUser memory userData = vault.getUser(user);
 
         //checks
@@ -212,7 +212,7 @@ contract FuturesEngine is Ownable {
         address _user
     ) public view returns (uint256 _limiterRate, uint256 _adjustedAmount) {
         //Load data
-        FuturesVault vault = FuturesVault(_registry.futuresVault());
+        FuturesVault vault = registryFuturesVault();
         FuturesUser memory userData = vault.getUser(_user);
 
         //calculate gross available
@@ -260,10 +260,8 @@ contract FuturesEngine is Ownable {
     //distributes only when yield is positive
     //inputs are validated by external facing functions
     function _distributeYield(address _user) private returns (bool success) {
-        FuturesVault vault = FuturesVault(_registry.futuresVault());
-        IFuturesYieldEngine yieldEngine = IFuturesYieldEngine(
-            _registry.yieldEngine()
-        );
+        FuturesVault vault = registryFuturesVault();
+        IFuturesYieldEngine yieldEngine = registryFuturesYieldEngine();
         FuturesUser memory userData = vault.getUser(_user);
         FuturesGlobals memory globalsData = vault.getGlobals();
 
@@ -312,7 +310,7 @@ contract FuturesEngine is Ownable {
     //@dev Checks if yield is available and compound before performing additional operations
     //compound only when yield is positive
     function _compoundYield(address _user) private returns (bool success) {
-        FuturesVault vault = FuturesVault(_registry.futuresVault());
+        FuturesVault vault = registryFuturesVault();
         FuturesUser memory userData = vault.getUser(_user);
         FuturesGlobals memory globalsData = vault.getGlobals();
 
@@ -358,7 +356,7 @@ contract FuturesEngine is Ownable {
     //@dev Transfer account to another wallet address
     function transfer(address _newUser) external {
         address user = msg.sender;
-        FuturesVault vault = FuturesVault(_registry.futuresVault());
+        FuturesVault vault = registryFuturesVault();
 
         FuturesUser memory userData = vault.getUser(user);
         FuturesUser memory newData = vault.getUser(_newUser);
@@ -401,5 +399,47 @@ contract FuturesEngine is Ownable {
 
         //log
         emit Transfer(user, _newUser, newData.currentBalance);
+    }
+
+    function registryFuturesVault() public view returns (FuturesVault) {
+        return
+            FuturesVault(
+                _registry.get(keccak256(abi.encodePacked("FUTURES_VAULT")))
+            );
+    }
+
+    function registryFuturesYieldEngine()
+        public
+        view
+        returns (IFuturesYieldEngine)
+    {
+        return
+            IFuturesYieldEngine(
+                _registry.get(
+                    keccak256(abi.encodePacked("FUTURES_YIELD_ENGINE"))
+                )
+            );
+    }
+
+    function registryCollateralToken() public view returns (IERC20) {
+        return
+            IERC20(
+                _registry.get(keccak256(abi.encodePacked("COLLATERAL_TOKEN")))
+            );
+    }
+
+    function registryCollateralTreasury() public view returns (address) {
+        return
+            _registry.get(keccak256(abi.encodePacked("COLLATERAL_TREASURY")));
+    }
+
+    function registryCollateralBufferPool() public view returns (address) {
+        return
+            _registry.get(keccak256(abi.encodePacked("COLLATERAL_BUFFERPOOL")));
+    }
+
+    function registryPcrTreasury() public view returns (address) {
+        return
+            _registry.get(keccak256(abi.encodePacked("COLLATERAL_BUFFERPOOL")));
     }
 }
