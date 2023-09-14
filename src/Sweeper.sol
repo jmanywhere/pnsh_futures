@@ -16,7 +16,7 @@ contract Sweeper is Ownable {
         _registry = registry;
     }
 
-    function sweep() external onlyOwner {
+    function sweep(address[] memory collateralToCorePath) external onlyOwner {
         IFuturesTreasury collateralTreasury = registryCollateralTreasury();
 
         IERC20 collateralToken = registryCollateralToken();
@@ -31,10 +31,7 @@ contract Sweeper is Ownable {
             address(collateralRouter),
             collateralToken.balanceOf(address(this))
         );
-        address[] memory path = new address[](3);
-        path[0] = address(collateralToken);
-        path[1] = collateralRouter.WETH();
-        path[2] = address(coreToken);
+        address[] memory path = collateralToCorePath;
         uint256 amount = (collateralToken.balanceOf(address(this)) * 5) / 6;
 
         collateralRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(

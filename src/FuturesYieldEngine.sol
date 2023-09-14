@@ -2,6 +2,7 @@
 pragma solidity >=0.8.19;
 import "openzeppelin/token/ERC20/IERC20.sol";
 import "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import "openzeppelin/utils/structs/DoubleEndedQueue.sol";
 import "openzeppelin/utils/math/Math.sol";
 import "./interfaces/IFuturesYieldEngine.sol";
 import "./structs/StructsFutures.sol";
@@ -17,8 +18,10 @@ import "./interfaces/IAmmTwapOracle.sol";
 contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
     using SafeERC20 for IERC20;
     using Math for uint256;
+    using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
 
     AddressRegistry private immutable _registry;
+    DoubleEndedQueue.Bytes32Deque private _pathCollateralToCore;
 
     bool public forceLiquidity = true;
 
@@ -38,6 +41,7 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
     //event UpdateReferralData(address indexed addr);
     //event UpdateSponsorData(address indexed addr);
     event UpdateForceLiquidity(bool value, bool newValue);
+    event UpdatePathCollateralToCore(address[]);
 
     /* ========== INITIALIZER ========== */
 
@@ -96,17 +100,11 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
             oracleAddress != address(0),
             "Require valid non-zero addresses"
         );
-        IAmmRouter02 collateralRouter = registryAmmRouter();
-        IERC20 coreToken = registryCoreToken();
-        IERC20 collateralToken = registryCollateralToken();
 
         //the main oracle
         oracle = IAmmTwapOracle(oracleAddress);
 
-        address[] memory path = new address[](3);
-        path[0] = address(collateralToken);
-        path[1] = collateralRouter.WETH();
-        path[2] = address(coreToken);
+        address[] memory path = getCoreToCollateralPath();
 
         //make sure our path for liquidation is registered
         oracle.updatePath(path);
@@ -194,14 +192,8 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
     function estimateCollateralToCore(
         uint collateralAmount
     ) public view returns (uint wethAmount, uint coreAmount) {
-        IERC20 collateralToken = registryCollateralToken();
-        IERC20 coreToken = registryCoreToken();
-        IAmmRouter02 collateralRouter = registryAmmRouter();
         //Convert from collateral to core using oracle
-        address[] memory path = new address[](3);
-        path[0] = address(collateralToken);
-        path[1] = collateralRouter.WETH();
-        path[2] = address(coreToken);
+        address[] memory path = getCollateralToCorePath();
 
         uint[] memory amounts = oracle.consultAmountsOut(
             collateralAmount,
@@ -211,6 +203,47 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
         //Use core router to get amount of coreTokens required to cover
         wethAmount = amounts[1];
         coreAmount = amounts[2];
+    }
+
+    function getCollateralToCorePath()
+        public
+        view
+        returns (address[] memory path)
+    {
+        uint256 length = _pathCollateralToCore.length();
+        path = new address[](length);
+        for (uint256 i; i < length; i++) {
+            path[i] = address(uint160(uint256(_pathCollateralToCore.at(i))));
+        }
+        return path;
+    }
+
+    function getCoreToCollateralPath()
+        public
+        view
+        returns (address[] memory path)
+    {
+        uint256 length = _pathCollateralToCore.length();
+        path = new address[](length);
+        for (uint256 i; i < length; i++) {
+            path[i] = address(
+                uint160(uint256(_pathCollateralToCore.at(length - i - 1)))
+            );
+        }
+        return path;
+    }
+
+    function setPathCollateralToCore(address[] memory newPath) external {
+        //Deletes all entries in queue
+        while (_pathCollateralToCore.length() > 0) {
+            _pathCollateralToCore.popBack();
+        }
+        //Adds all path elements to queue
+        for (uint256 i; i < newPath.length; i++) {
+            _pathCollateralToCore.pushBack(
+                bytes32(uint256(uint160(newPath[i])))
+            );
+        }
     }
 
     //@dev liquidate core tokens from the treasury to the destination
@@ -223,11 +256,7 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
         IERC20 collateralToken = registryCollateralToken();
         IAmmRouter02 collateralRouter = registryAmmRouter();
         IFuturesTreasury coreTreasury = registryCoreTreasury();
-        address[] memory path = new address[](3);
-
-        path[0] = address(coreToken);
-        path[1] = collateralRouter.WETH();
-        path[2] = address(collateralToken);
+        address[] memory path = getCoreToCollateralPath();
 
         //withdraw from treasury
         coreTreasury.withdraw(_amount);
