@@ -440,6 +440,6 @@ contract FuturesEngine is Ownable {
 
     function registryPcrTreasury() public view returns (address) {
         return
-            _registry.get(keccak256(abi.encodePacked("COLLATERAL_BUFFERPOOL")));
+            _registry.get(keccak256(abi.encodePacked("COLLATERAL_PCR_TREASURY")));
     }
 }
