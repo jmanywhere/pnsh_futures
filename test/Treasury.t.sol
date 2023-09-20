@@ -46,7 +46,6 @@ contract TestWhitelist is Test {
         treasury.withdraw(1_000 ether);
 
         vm.startPrank(users[0]);
-        console.log(users[0]);
         treasury.grantRole(treasury.WHITELIST_ROLE(), users[2]);
         vm.stopPrank();
 

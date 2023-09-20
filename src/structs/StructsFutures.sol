@@ -21,5 +21,4 @@ struct FuturesGlobals {
     uint256 totalRewards;
     uint256 totalTxs;
     uint256 currentBalance;
-    uint256 currentApr; //current apr
 }
