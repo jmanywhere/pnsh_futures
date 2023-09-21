@@ -20,9 +20,7 @@ contract TestWhitelist is Test {
     }
 
     function test_constructorGrantRoles() public {
-        assertEq(
-            futuresVault.owner(),users[0]
-        );
+        assertEq(registry.owner(), users[0]);
     }
 
     function test_setMulti() public {
@@ -31,23 +29,32 @@ contract TestWhitelist is Test {
         keys[1] = "KEY_1";
         keys[2] = "KEY_2";
         address[] memory vals = new address[](3);
-        address[0] = makeAddr("ADDR_0");
-        address[1] = makeAddr("ADDR_1");
-        address[2] = makeAddr("ADDR_2");
+        vals[0] = makeAddr("ADDR_0");
+        vals[1] = makeAddr("ADDR_1");
+        vals[2] = makeAddr("ADDR_2");
 
         vm.expectRevert();
-        registry.setMulti(keys,vals);
+        registry.setMulti(keys, vals);
 
-        vm.prank(user[0]);
-        registry.setMulti(keys,vals);
+        vm.prank(users[0]);
+        registry.setMulti(keys, vals);
 
-        bytes32[] allKeys = registry.getKeysWithHighGasCost();
-        bytes32 key2 = registry.at(2);
-        address val2 = registry.get(2);
+        bytes32[] memory allKeys = registry.getKeysWithHighGasCost();
+        (uint256 key1, address val1) = registry.at(1);
 
-        assertEq(allKeys[0],keys[0]);
-        assertEq(allKeys[1],keys[1]);
-        assertEq(allKeys[2],keys[2]);
-
+        assertEq(
+            uint256(allKeys[0]),
+            uint256(keccak256(abi.encodePacked(keys[0])))
+        );
+        assertEq(
+            uint256(allKeys[1]),
+            uint256(keccak256(abi.encodePacked(keys[1])))
+        );
+        assertEq(
+            uint256(allKeys[2]),
+            uint256(keccak256(abi.encodePacked(keys[2])))
+        );
+        assertEq(key1, uint256(keccak256(abi.encodePacked(keys[1]))));
+        assertEq(val1, vals[1]);
     }
 }
