@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
@@ -6,7 +6,7 @@ import "openzeppelin/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "../src/FuturesVault.sol";
 import "../src/structs/StructsFutures.sol";
 
-contract TestWhitelist is Test {
+contract TestFuturesVault is Test {
     FuturesVault public futuresVault;
 
     address[] public users;

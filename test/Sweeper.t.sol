@@ -2,11 +2,17 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
+import "openzeppelin/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "../src/Sweeper.sol";
 import "../src/AddressRegistry.sol";
 
-contract TestAddressRegistry is Test {
+contract TestSweeper is Test {
+    Sweeper public sweeper;
+
     AddressRegistry public registry;
 
+    ERC20PresetFixedSupply public collateralToken;
+    ERC20PresetFixedSupply public coreToken;
     address[] public users;
 
     function setUp() public {
@@ -15,12 +21,28 @@ contract TestAddressRegistry is Test {
         users.push(makeAddr("user2"));
         users.push(makeAddr("user3"));
 
-        vm.prank(users[0]);
+        vm.startPrank(users[0]);
+        collateralToken = new ERC20PresetFixedSupply(
+            "collateralToken",
+            "collat",
+            1_000 ether,
+            address(users[0])
+        );
+        coreToken = new ERC20PresetFixedSupply(
+            "coreToken",
+            "core",
+            1_000 ether,
+            address(users[0])
+        );
+
         registry = new AddressRegistry();
+        sweeper = new Sweeper(registry);
+
+        vm.stopPrank();
     }
 
     function test_constructorGrantRoles() public {
-        assertEq(registry.owner(), users[0]);
+        assertEq(sweeper.owner(), users[0]);
     }
 
     function test_setMulti() public {
