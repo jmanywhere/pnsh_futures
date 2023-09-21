@@ -6,7 +6,7 @@ import "openzeppelin/utils/math/SafeMath.sol";
 
 import "../interfaces/IAmmPair.sol";
 import "./AmmERC20.sol";
-import "./lib/Math.sol";
+import "./lib/AmmMath.sol";
 import "./lib/UQ112x112.sol";
 import "../interfaces/IAmmFactory.sol";
 import "../interfaces/IAmmCallee.sol";
@@ -118,8 +118,8 @@ contract AmmPair is IAmmPair, AmmERC20 {
         uint _kLast = kLast; // gas savings
         if (feeOn) {
             if (_kLast != 0) {
-                uint rootK = Math.sqrt(uint(_reserve0).mul(_reserve1));
-                uint rootKLast = Math.sqrt(_kLast);
+                uint rootK = AmmMath.sqrt(uint(_reserve0).mul(_reserve1));
+                uint rootKLast = AmmMath.sqrt(_kLast);
                 if (rootK > rootKLast) {
                     uint numerator = totalSupply.mul(rootK.sub(rootKLast)).mul(
                         8
@@ -145,10 +145,12 @@ contract AmmPair is IAmmPair, AmmERC20 {
         bool feeOn = _mintFee(_reserve0, _reserve1);
         uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
         if (_totalSupply == 0) {
-            liquidity = Math.sqrt(amount0.mul(amount1)).sub(MINIMUM_LIQUIDITY);
+            liquidity = AmmMath.sqrt(amount0.mul(amount1)).sub(
+                MINIMUM_LIQUIDITY
+            );
             _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
         } else {
-            liquidity = Math.min(
+            liquidity = AmmMath.min(
                 amount0.mul(_totalSupply) / _reserve0,
                 amount1.mul(_totalSupply) / _reserve1
             );

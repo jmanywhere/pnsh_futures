@@ -48,6 +48,10 @@ contract Sweeper is Ownable {
         );
 
         //Spend remaining 1/6 on liquidity
+        coreToken.approve(
+            address(collateralRouter),
+            coreToken.balanceOf(address(this))
+        );
         collateralRouter.addLiquidity(
             address(coreToken), //address tokenA,
             address(collateralToken), //address tokenB,

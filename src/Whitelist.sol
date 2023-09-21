@@ -3,7 +3,6 @@ pragma solidity >=0.8.19;
 
 import "openzeppelin/access/AccessControlEnumerable.sol";
 import "openzeppelin/token/ERC20/IERC20.sol";
-import "./Errors.sol";
 
 /**
  * @title Whitelist
@@ -22,9 +21,10 @@ contract Whitelist is AccessControlEnumerable {
      * @dev Throws if called by any account that's not whitelisted.
      */
     modifier onlyWhitelisted() {
-        if (!hasRole(WHITELIST_ROLE, msg.sender)) {
-            revert NotWhitelisted();
-        }
+        require(
+            hasRole(WHITELIST_ROLE, msg.sender),
+            "Whitelist: Not whitelisted"
+        );
         _;
     }
 

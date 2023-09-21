@@ -4,7 +4,7 @@ pragma solidity >=0.8.19;
 import "../interfaces/IAmmFactory.sol";
 import "./AmmPair.sol";
 
-contract PancakeFactory is IAmmFactory {
+contract AmmFactory is IAmmFactory {
     bytes32 public constant INIT_CODE_PAIR_HASH =
         keccak256(abi.encodePacked(type(AmmPair).creationCode));
 

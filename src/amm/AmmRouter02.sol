@@ -105,8 +105,8 @@ contract AmmRouter is IAmmRouter02 {
             amountBMin
         );
         address pair = AmmLibrary.pairFor(factory, tokenA, tokenB);
-        IERC20(tokenA).safeTransferFrom(msg.sender, pair, amountA);
-        IERC20(tokenB).safeTransferFrom(msg.sender, pair, amountB);
+        SafeERC20.safeTransferFrom(IERC20(tokenA), msg.sender, pair, amountA);
+        SafeERC20.safeTransferFrom(IERC20(tokenB), msg.sender, pair, amountB);
         liquidity = IAmmPair(pair).mint(to);
     }
 

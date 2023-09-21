@@ -101,8 +101,8 @@ contract AmmRouter01 is IAmmRouter01 {
             amountBMin
         );
         address pair = AmmLibrary.pairFor(factory, tokenA, tokenB);
-        IERC20(tokenA).safeTransferFrom(msg.sender, pair, amountA);
-        IERC20(tokenB).safeTransferFrom(msg.sender, pair, amountB);
+        SafeERC20.safeTransferFrom(IERC20(tokenA), msg.sender, pair, amountA);
+        SafeERC20.safeTransferFrom(IERC20(tokenB), msg.sender, pair, amountB);
         liquidity = IAmmPair(pair).mint(to);
     }
 
@@ -307,10 +307,7 @@ contract AmmRouter01 is IAmmRouter01 {
         uint deadline
     ) external override ensure(deadline) returns (uint[] memory amounts) {
         amounts = AmmLibrary.getAmountsIn(factory, amountOut, path);
-        require(
-            amounts[0] <= amountInMax,
-            "AmmRouter: EXCESSIVE_INPUT_AMOUNT"
-        );
+        require(amounts[0] <= amountInMax, "AmmRouter: EXCESSIVE_INPUT_AMOUNT");
         IERC20(path[0]).safeTransferFrom(
             msg.sender,
             AmmLibrary.pairFor(factory, path[0], path[1]),
@@ -356,10 +353,7 @@ contract AmmRouter01 is IAmmRouter01 {
     ) external override ensure(deadline) returns (uint[] memory amounts) {
         require(path[path.length - 1] == WETH, "AmmRouter: INVALID_PATH");
         amounts = AmmLibrary.getAmountsIn(factory, amountOut, path);
-        require(
-            amounts[0] <= amountInMax,
-            "AmmRouter: EXCESSIVE_INPUT_AMOUNT"
-        );
+        require(amounts[0] <= amountInMax, "AmmRouter: EXCESSIVE_INPUT_AMOUNT");
         IERC20(path[0]).safeTransferFrom(
             msg.sender,
             AmmLibrary.pairFor(factory, path[0], path[1]),
@@ -407,10 +401,7 @@ contract AmmRouter01 is IAmmRouter01 {
     {
         require(path[0] == WETH, "AmmRouter: INVALID_PATH");
         amounts = AmmLibrary.getAmountsIn(factory, amountOut, path);
-        require(
-            amounts[0] <= msg.value,
-            "AmmRouter: EXCESSIVE_INPUT_AMOUNT"
-        );
+        require(amounts[0] <= msg.value, "AmmRouter: EXCESSIVE_INPUT_AMOUNT");
         IWETH(WETH).deposit{value: amounts[0]}();
         assert(
             IWETH(WETH).transfer(
