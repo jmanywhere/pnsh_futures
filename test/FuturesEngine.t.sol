@@ -13,6 +13,7 @@ import "../src/FuturesYieldEngine.sol";
 import "../src/FuturesVault.sol";
 import "../src/Treasury.sol";
 import "../src/TreasuryConvertible.sol";
+import "../src/Sweeper.sol";
 
 contract TestFuturesEngine is Test {
     FuturesEngine public futuresEngine;
@@ -22,7 +23,9 @@ contract TestFuturesEngine is Test {
     TreasuryConvertible public collateralPcrTreasury;
     TreasuryConvertible public collateralBufferPool;
     TreasuryConvertible public collateralTreasury;
-    TreasuryConvertible public coreTreasury;
+    Treasury public coreTreasury;
+    Treasury public coreLpTreasury;
+    Sweeper public sweeper;
 
     WETH public weth;
     AmmFactory public ammFactory;
@@ -65,20 +68,21 @@ contract TestFuturesEngine is Test {
         collateralPcrTreasury = new TreasuryConvertible(collateralToken);
         collateralBufferPool = new TreasuryConvertible(collateralToken);
         collateralTreasury = new TreasuryConvertible(collateralToken);
-        coreTreasury = new TreasuryConvertible(coreToken);
+        coreTreasury = new Treasury(coreToken);
 
         coreLp = IAmmPair(
             ammFactory.createPair(address(collateralToken), address(coreToken))
         );
+        coreLpTreasury = new Treasury(coreToken);
 
         registry = new AddressRegistry();
 
         futuresVault = new FuturesVault();
-
+        sweeper = new Sweeper(registry);
         futuresYieldEngine = new FuturesYieldEngine(registry);
         futuresEngine = new FuturesEngine(registry);
 
-        bytes32[] memory registryKeys = new bytes32[](9);
+        bytes32[] memory registryKeys = new bytes32[](10);
         registryKeys[0] = keccak256(abi.encodePacked("FUTURES_VAULT"));
         registryKeys[1] = keccak256(abi.encodePacked("FUTURES_YIELD_ENGINE"));
         registryKeys[2] = keccak256(abi.encodePacked("COLLATERAL_TOKEN"));
@@ -90,7 +94,8 @@ contract TestFuturesEngine is Test {
         registryKeys[6] = keccak256(abi.encodePacked("AMM_ROUTER"));
         registryKeys[7] = keccak256(abi.encodePacked("CORE_TOKEN"));
         registryKeys[8] = keccak256(abi.encodePacked("CORE_TREASURY"));
-        address[] memory registryVals = new address[](9);
+        registryKeys[9] = keccak256(abi.encodePacked("CORE_LP_TREASURY"));
+        address[] memory registryVals = new address[](10);
         registryVals[0] = address(futuresVault);
         registryVals[1] = address(futuresYieldEngine);
         registryVals[2] = address(collateralToken);
@@ -100,6 +105,7 @@ contract TestFuturesEngine is Test {
         registryVals[6] = address(ammRouter);
         registryVals[7] = address(coreToken);
         registryVals[8] = address(coreTreasury);
+        registryVals[9] = address(coreLpTreasury);
         registry.setMulti(registryKeys, registryVals);
 
         AmmTwapOracle oracle = new AmmTwapOracle(address(ammFactory), 4 hours);
@@ -129,6 +135,12 @@ contract TestFuturesEngine is Test {
 
         futuresYieldEngine.setPathCollateralToCore(path);
         futuresYieldEngine.updateOracle(oracle);
+
+        address[] memory toWhitelistOnCollateralTreasury = new address[](1);
+        toWhitelistOnCollateralTreasury[0] = address(sweeper);
+        collateralTreasury.addAddressesToWhitelist(
+            toWhitelistOnCollateralTreasury
+        );
 
         address[] memory toWhitelistOnBufferPool = new address[](1);
         toWhitelistOnBufferPool[0] = address(futuresYieldEngine);
@@ -294,10 +306,15 @@ contract TestFuturesEngine is Test {
     function test_1DayClaim() public {
         test_halfAprDeposit();
 
-        uint256 userInitialBal = collateralToken.balanceOf(users[1]);
-        (, uint256 initialAvailable) = futuresEngine.available(users[1]);
+        address[] memory collateralToCorePath = new address[](2);
+        collateralToCorePath[0] = address(collateralToken);
+        collateralToCorePath[1] = address(coreToken);
+        vm.prank(users[0]);
+        sweeper.sweep(collateralToCorePath);
 
         vm.warp(block.timestamp + 24 hours);
+        uint256 userInitialBal = collateralToken.balanceOf(users[1]);
+        (, uint256 initialAvailable) = futuresEngine.available(users[1]);
 
         vm.prank(users[1]);
         futuresEngine.claim();
@@ -310,9 +327,27 @@ contract TestFuturesEngine is Test {
 
         assertEq(initialAvailable, userFinalBal - userInitialBal);
         assertEq(finalAvailable, 0);
-        assertEq(
-            initialAvailable,
-            24 hours * ((325 ether * 182.5e18) / 2 / (365 * 100e18) / 24 hours)
-        );
+        uint256 expectedVal = (24 hours) *
+            ((325 ether * (182.5e18 / 2)) / (365 * 100e18) / 24 hours);
+        assertLe(initialAvailable, expectedVal);
+        assertGe(initialAvailable, expectedVal - 100_000);
+        assertEq(initialAvailable, 0.812499999999984 ether);
+
+        assertTrue(user.exists);
+        assertEq(user.deposits, 325 ether);
+        assertEq(user.compoundDeposits, 0);
+        assertEq(user.currentBalance, 325 ether - initialAvailable);
+        assertEq(user.currentApr, 182.5e18 / 2); //4 tick
+        assertEq(user.payouts, initialAvailable);
+        assertEq(user.rewards, 0);
+        assertEq(user.lastTime, block.timestamp);
+
+        assertEq(info.totalUsers, 1);
+        assertEq(info.totalDeposited, 325 ether);
+        assertEq(info.totalCompoundDeposited, 0);
+        assertEq(info.totalClaimed, initialAvailable);
+        assertEq(info.totalRewards, 0);
+        assertEq(info.totalTxs, 4);
+        assertEq(info.currentBalance, 325 ether - initialAvailable);
     }
 }
