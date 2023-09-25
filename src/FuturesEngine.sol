@@ -10,6 +10,7 @@ import "./FuturesVault.sol";
 import "./interfaces/IFuturesTreasury.sol";
 import "./interfaces/IFuturesYieldEngine.sol";
 import "./AddressRegistry.sol";
+import "./interfaces/IAmmTwapOracle.sol";
 
 //@dev  Business logic for Futures
 //Engine can be swapped out if upgrades are needed
@@ -22,7 +23,7 @@ contract FuturesEngine is Ownable {
 
     //Financial Model
     uint256 public constant REFERENCE_APR = 182.5e18; //0.5% daily
-    uint256 public constant MAX_BALANCE = 1000000e18; //1M
+    uint256 public constant MAX_BALANCE = 1_000_000 ether; //1M
     uint256 public constant MAX_TICKS = 8; //Multiply by min deposit to get max APR of 0.5% daily
     uint256 public constant MIN_DEPOSIT = 25e18; //200+ deposits; will compound available rewards
     uint256 public constant MAX_AVAILABLE = 50000e18; //50K max claim daily, 10 days missed claims
@@ -67,6 +68,9 @@ contract FuturesEngine is Ownable {
 
     //@dev Deposit BUSD in exchange for TRUNK at the current TWAP price
     function deposit(uint _amount) external {
+        //keep oracle up to date
+        IAmmTwapOracle(registryFuturesYieldEngine().oracle()).updateAll();
+
         //Only the key holder can invest their funds
         address user = msg.sender;
 
@@ -90,9 +94,9 @@ contract FuturesEngine is Ownable {
         //50% buy pNSH + 25% mint pNSH/collat lp
         uint treasuryAmount = share * 75;
         // 15% to Bufferpool
-        uint bufferAmount = share - 15;
+        uint bufferAmount = share * 15;
         // 10% to PCR
-        uint pcrAmount = share - treasuryAmount - bufferAmount;
+        uint pcrAmount = _amount - treasuryAmount - bufferAmount;
 
         IERC20 collateralToken = registryCollateralToken();
         collateralToken.safeTransferFrom(
@@ -107,7 +111,7 @@ contract FuturesEngine is Ownable {
         );
         collateralToken.safeTransferFrom(
             user,
-            registryPcrTreasury(),
+            registryCollateralPcrTreasury(),
             pcrAmount
         );
 
@@ -153,6 +157,8 @@ contract FuturesEngine is Ownable {
 
     //@dev Claims earned interest for the caller
     function claim() external returns (bool success) {
+        //keep oracle up to date
+        IAmmTwapOracle(registryFuturesYieldEngine().oracle()).updateAll();
         //Only the owner of funds can claim funds
         address user = msg.sender;
 
@@ -230,7 +236,10 @@ contract FuturesEngine is Ownable {
         }
 
         //apply compound rate limiter
-        uint256 _compSurplus = userData.compoundDeposits - userData.deposits;
+        uint256 _compSurplus = 0;
+        if (userData.compoundDeposits > userData.deposits) {
+            _compSurplus = userData.compoundDeposits - userData.deposits;
+        }
 
         if (_compSurplus < 50000e18) {
             _limiterRate = 0;
@@ -270,7 +279,11 @@ contract FuturesEngine is Ownable {
 
         // payout remaining allowable divs if exceeds
         if (userData.payouts + _amount > MAX_PAYOUTS) {
-            _amount = MAX_PAYOUTS - userData.payouts;
+            if (MAX_PAYOUTS > userData.payouts) {
+                _amount = MAX_PAYOUTS - userData.payouts;
+            } else {
+                _amount = 0;
+            }
             _amount = _amount.min(userData.currentBalance); //withdraw up to the current balance
         }
 
@@ -288,9 +301,13 @@ contract FuturesEngine is Ownable {
                 //total stats
                 globalsData.totalClaimed += _amount;
                 globalsData.totalTxs += 1;
-                globalsData.currentBalance =
-                    globalsData.currentBalance -
-                    _amount;
+                if (globalsData.currentBalance > _amount) {
+                    globalsData.currentBalance =
+                        globalsData.currentBalance -
+                        _amount;
+                } else {
+                    globalsData.currentBalance = 0;
+                }
 
                 //commit updates
                 vault.commitUser(_user, userData);
@@ -438,8 +455,10 @@ contract FuturesEngine is Ownable {
             _registry.get(keccak256(abi.encodePacked("COLLATERAL_BUFFERPOOL")));
     }
 
-    function registryPcrTreasury() public view returns (address) {
+    function registryCollateralPcrTreasury() public view returns (address) {
         return
-            _registry.get(keccak256(abi.encodePacked("COLLATERAL_PCR_TREASURY")));
+            _registry.get(
+                keccak256(abi.encodePacked("COLLATERAL_PCR_TREASURY"))
+            );
     }
 }

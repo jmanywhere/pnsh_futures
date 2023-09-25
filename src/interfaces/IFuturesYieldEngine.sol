@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.19;
 
+import "./IAmmTwapOracle.sol";
+
 interface IFuturesYieldEngine {
     function yield(
         address _user,
@@ -9,5 +11,7 @@ interface IFuturesYieldEngine {
 
     function estimateCollateralToCore(
         uint256 collateralAmount
-    ) external view returns (uint256 wethAmount, uint256 coreAmount);
+    ) external view returns (uint256 coreAmount);
+
+    function oracle() external view returns (IAmmTwapOracle);
 }

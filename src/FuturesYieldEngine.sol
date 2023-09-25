@@ -94,22 +94,22 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
 
     //@dev Update the oracle used for price info
     function updateOracle(
-        address oracleAddress
+        IAmmTwapOracle oracleAddress
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(
-            oracleAddress != address(0),
+            address(oracleAddress) != address(0),
             "Require valid non-zero addresses"
         );
 
         //the main oracle
-        oracle = IAmmTwapOracle(oracleAddress);
+        oracle = oracleAddress;
 
         address[] memory path = getCoreToCollateralPath();
 
         //make sure our path for liquidation is registered
         oracle.updatePath(path);
 
-        emit UpdateOracle(oracleAddress);
+        emit UpdateOracle(address(oracleAddress));
     }
 
     /********** Whitelisted Fuctions **************************************************/
@@ -126,13 +126,12 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
         IERC20 collateralToken = registryCollateralToken();
         IFuturesTreasury collateralBufferPool = registryCollateralBufferPool();
         //CollateralBuffer should be large enough to support daily yield
-        uint256 cbShare = collateralToken.balanceOf(
-            address(collateralBufferPool)
-        ) / 100;
+        uint256 cbShare = (5 *
+            collateralToken.balanceOf(address(collateralBufferPool))) / 100;
 
-        //if yield is greater than 1%
+        //if yield is greater than 5%
         if (_amount > cbShare || forceLiquidity) {
-            (, uint _coreAmount) = estimateCollateralToCore(_amount);
+            uint _coreAmount = estimateCollateralToCore(_amount);
             _liquidateCore(
                 address(collateralBufferPool),
                 (_coreAmount * 110) / 100
@@ -191,7 +190,7 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
 
     function estimateCollateralToCore(
         uint collateralAmount
-    ) public view returns (uint wethAmount, uint coreAmount) {
+    ) public view returns (uint coreAmount) {
         //Convert from collateral to core using oracle
         address[] memory path = getCollateralToCorePath();
 
@@ -201,8 +200,7 @@ contract FuturesYieldEngine is Whitelist, IFuturesYieldEngine {
         );
 
         //Use core router to get amount of coreTokens required to cover
-        wethAmount = amounts[1];
-        coreAmount = amounts[2];
+        coreAmount = amounts[amounts.length - 1];
     }
 
     function getCollateralToCorePath()

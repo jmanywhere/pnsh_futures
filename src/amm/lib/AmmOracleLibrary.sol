@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.19;
 import "./FixedPoint.sol";
-import "../interfaces/IAmmPair.sol";
+import "../../interfaces/IAmmPair.sol";
 
 // library with helper methods for oracles that are concerned with computing average prices
 library AmmOracleLibrary {

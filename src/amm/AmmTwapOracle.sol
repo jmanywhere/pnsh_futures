@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.19;
 
-import "./Whitelist.sol";
-import "./interfaces/IAmmPair.sol";
-import "./interfaces/IAmmTwapOracle.sol";
-import "./libraries/FixedPoint.sol";
-import "./libraries/AmmLibrary.sol";
-import "./libraries/AmmOracleLibrary.sol";
+import "../Whitelist.sol";
+import "../interfaces/IAmmPair.sol";
+import "../interfaces/IAmmTwapOracle.sol";
+import "./lib/FixedPoint.sol";
+import "./lib/AmmLibrary.sol";
+import "./lib/AmmOracleLibrary.sol";
 
 // fixed window oracle that recomputes the average price for the entire period once every period
 // note that the price average is only guaranteed to be over at least 1 period, but may be over a longer period
