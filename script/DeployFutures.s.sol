@@ -34,7 +34,7 @@ contract DeployFutures is Script {
     //Collateral 
     IERC20 usdt = IERC20(0x55d398326f99059fF775485246999027B3197955);
     //Core token
-    IERC20 pnsh = IERC20(0x0);
+    IERC20 pnsh = IERC20(0xDC53108a9ef3e4B8cF7EF54dcA044F3995c34729);
     */
 
     function run() public {
