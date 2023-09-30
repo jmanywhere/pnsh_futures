@@ -350,4 +350,53 @@ contract TestFuturesEngine is Test {
         assertEq(info.totalTxs, 4);
         assertEq(info.currentBalance, 325 ether - initialAvailable);
     }
+
+    function test_1DayDeposit() public {
+        test_halfAprDeposit();
+
+        address[] memory collateralToCorePath = new address[](2);
+        collateralToCorePath[0] = address(collateralToken);
+        collateralToCorePath[1] = address(coreToken);
+        vm.prank(users[0]);
+        sweeper.sweep(collateralToCorePath);
+
+        vm.warp(block.timestamp + 24 hours);
+        uint256 userInitialBal = collateralToken.balanceOf(users[1]);
+        (, uint256 initialAvailable) = futuresEngine.available(users[1]);
+
+        vm.prank(users[1]);
+        futuresEngine.deposit(25 ether);
+
+        uint256 userFinalBal = collateralToken.balanceOf(users[1]);
+        (, uint256 finalAvailable) = futuresEngine.available(users[1]);
+
+        FuturesUser memory user = futuresEngine.getUser(users[1]);
+        FuturesGlobals memory info = futuresEngine.getInfo();
+
+        assertEq(25 ether, userInitialBal - userFinalBal);
+        assertEq(finalAvailable, 0);
+        uint256 expectedVal = (24 hours) *
+            ((325 ether * (182.5e18 / 2)) / (365 * 100e18) / 24 hours);
+        assertLe(initialAvailable, expectedVal);
+        assertGe(initialAvailable, expectedVal - 100_000);
+        uint256 expectedInitialAvailable = 0.812499999999984 ether;
+        assertEq(initialAvailable, expectedInitialAvailable);
+
+        assertTrue(user.exists);
+        assertEq(user.deposits, 350 ether);
+        assertEq(user.compoundDeposits, expectedInitialAvailable);
+        assertEq(user.currentBalance, 350 ether + expectedInitialAvailable);
+        assertEq(user.currentApr, 182.5e18 / 8); //1 tick
+        assertEq(user.payouts, expectedInitialAvailable);
+        assertEq(user.rewards, 0);
+        assertEq(user.lastTime, block.timestamp);
+
+        assertEq(info.totalUsers, 1);
+        assertEq(info.totalDeposited, 350 ether);
+        assertEq(info.totalCompoundDeposited, expectedInitialAvailable);
+        assertEq(info.totalClaimed, expectedInitialAvailable);
+        assertEq(info.totalRewards, 0);
+        assertEq(info.totalTxs, 5);
+        assertEq(info.currentBalance, 350 ether + expectedInitialAvailable);
+    }
 }
