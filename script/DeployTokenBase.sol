@@ -8,7 +8,7 @@ contract DeployTokenBase is Script {
     string _name = "Nebula";
     string _ticker = "NSH";
     uint256 _initialSupply = 0 ether;
-    bool _isMintable = false;
+    bool _isMintable = true;
     bool _isTaxable = false;
 
     function run() public {
