@@ -36,6 +36,7 @@ contract FuturesVault is Whitelist {
         _users[user].payouts = userData.payouts;
         _users[user].rewards = userData.rewards;
         _users[user].lastTime = userData.lastTime;
+        _users[user].lastDeposit = userData.lastDeposit;
     }
 
     //@dev commit Globals Info

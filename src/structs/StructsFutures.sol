@@ -11,6 +11,7 @@ struct FuturesUser {
     uint payouts; //total yield payouts across all farms
     uint rewards; //partner rewards
     uint lastTime; //last interaction
+    uint lastDeposit;
 }
 
 struct FuturesGlobals {

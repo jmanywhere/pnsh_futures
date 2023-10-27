@@ -77,6 +77,7 @@ contract FuturesEngine is Ownable {
         FuturesVault vault = registryFuturesVault();
 
         FuturesUser memory userData = vault.getUser(user);
+        userData.lastDeposit = _amount;
         FuturesGlobals memory globalsData = vault.getGlobals();
 
         require(_amount >= MIN_DEPOSIT, "amount less than minimum deposit");
