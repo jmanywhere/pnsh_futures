@@ -39,7 +39,8 @@ contract TestFuturesVault is Test {
             4, //uint currentApr; //current apr
             5, //uint payouts; //total yield payouts across all farms
             6, //uint rewards; //partner rewards
-            7 //uint lastTime; //last interaction
+            7, //uint lastTime; //last interaction
+            8 //uint lastDeposit; //last deposit amount made
         );
 
         vm.prank(users[1]);
