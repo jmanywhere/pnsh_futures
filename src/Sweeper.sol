@@ -7,16 +7,19 @@ import "openzeppelin/token/ERC20/IERC20.sol";
 import "./interfaces/IAmmRouter02.sol";
 import "./interfaces/IFuturesTreasury.sol";
 import "./AddressRegistry.sol";
+import "./Whitelist.sol";
 
-contract Sweeper is Ownable {
+contract Sweeper is Ownable, Whitelist {
     using SafeERC20 for IERC20;
     AddressRegistry private immutable _registry;
 
-    constructor(AddressRegistry registry) Ownable() {
+    constructor(AddressRegistry registry) Ownable() Whitelist(msg.sender) {
         _registry = registry;
     }
 
-    function sweep(address[] memory collateralToCorePath) external onlyOwner {
+    function sweep(
+        address[] memory collateralToCorePath
+    ) external onlyWhitelisted {
         IFuturesTreasury collateralTreasury = registryCollateralTreasury();
 
         IERC20 collateralToken = registryCollateralToken();
@@ -24,6 +27,7 @@ contract Sweeper is Ownable {
         IAmmRouter02 collateralRouter = registryAmmRouter();
 
         //Spend 5/6 on core (2/3 on core, 1/6 on core lp)
+        // TODO: After this line, we can distribute to the treasuries
         collateralTreasury.withdraw(
             collateralToken.balanceOf(address(collateralTreasury))
         );
@@ -42,6 +46,7 @@ contract Sweeper is Ownable {
             block.timestamp //deadline
         );
         //send 4/5 to treasury (2/3 of the original asset)
+        //TODO: Here is where we will distribute to the treasuries
         coreToken.transfer(
             registryCoreTreasury(),
             (coreToken.balanceOf(address(this)) * 4) / 5
@@ -61,13 +66,6 @@ contract Sweeper is Ownable {
             0, //uint256 amountBMin,
             registryCoreLpTreasury(), //address to,
             block.timestamp //uint256 deadline
-        );
-    }
-
-    function recoverERC20(address tokenAddress) external onlyOwner {
-        IERC20(tokenAddress).safeTransfer(
-            _msgSender(),
-            IERC20(tokenAddress).balanceOf(address(this))
         );
     }
 
