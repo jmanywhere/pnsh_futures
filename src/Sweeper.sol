@@ -17,8 +17,15 @@ contract Sweeper is Ownable, Whitelist {
         _registry = registry;
     }
 
+    /// TODO:
+    /// Sweeper does 2 things
+    /// 1. Check DailyLiabilities to make sure we're covered for the day
+    /// 2. Check if PRICE of NSH has gone down, and if it has, buy back to put price back up + 1% of the previous price.
+    ///     a. NSH bought goes to the Stronghold Treasury
+
     function sweep(
-        address[] memory collateralToCorePath
+        address[] memory collateralToCorePath,
+        uint collateralAmountToExtract
     ) external onlyWhitelisted {
         IFuturesTreasury collateralTreasury = registryCollateralTreasury();
 
@@ -28,9 +35,7 @@ contract Sweeper is Ownable, Whitelist {
 
         //Spend 5/6 on core (2/3 on core, 1/6 on core lp)
         // TODO: After this line, we can distribute to the treasuries
-        collateralTreasury.withdraw(
-            collateralToken.balanceOf(address(collateralTreasury))
-        );
+        collateralTreasury.withdraw(collateralAmountToExtract);
         collateralToken.approve(
             address(collateralRouter),
             collateralToken.balanceOf(address(this))

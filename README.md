@@ -5,9 +5,8 @@ Deploy: If not testing, be sure to (1) comment out the deployment of the test pn
 
 The below `forge script` command will deploy the smart contract ecosystem. Use the proper $RPC_URL and $ETHERSCAN_KEY (bscscan key) for the network you are deploying to, and the $PRIVATE_KEY that will administer the contracts. It will take some time to run as it simulates the transactions locally first.
 
-`
-forge script script/DeployFutures.s.sol:DeployFutures --broadcast --verify -vvv \
+`forge script script/DeployFutures.s.sol:DeployFutures --broadcast --verify -vvv \
  --rpc-url $RPC_URL \
- --etherscan-api-key $ETHERSCAN_KEY
+ --etherscan-api-key $ETHERSCAN_KEY \
  --private-key $PRIVATE_KEY
- `
+`

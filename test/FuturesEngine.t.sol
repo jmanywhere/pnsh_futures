@@ -310,7 +310,10 @@ contract TestFuturesEngine is Test {
         collateralToCorePath[0] = address(collateralToken);
         collateralToCorePath[1] = address(coreToken);
         vm.prank(users[0]);
-        sweeper.sweep(collateralToCorePath);
+        sweeper.sweep(
+            collateralToCorePath,
+            collateralToken.balanceOf(address(collateralTreasury))
+        );
 
         vm.warp(block.timestamp + 24 hours);
         uint256 userInitialBal = collateralToken.balanceOf(users[1]);
@@ -358,7 +361,10 @@ contract TestFuturesEngine is Test {
         collateralToCorePath[0] = address(collateralToken);
         collateralToCorePath[1] = address(coreToken);
         vm.prank(users[0]);
-        sweeper.sweep(collateralToCorePath);
+        sweeper.sweep(
+            collateralToCorePath,
+            collateralToken.balanceOf(address(collateralTreasury))
+        );
 
         vm.warp(block.timestamp + 24 hours);
         uint256 userInitialBal = collateralToken.balanceOf(users[1]);

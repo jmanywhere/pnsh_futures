@@ -18,57 +18,68 @@ import "openzeppelin/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 contract DeployFutures is Script {
     //TESTNET CONTRACTS
     //Pancakeswap
-    IAmmFactory public ammFactory =
-        IAmmFactory(0x6725F303b657a9451d8BA641348b6761A6CC7a17);
     IAmmRouter02 public ammRouter =
-        IAmmRouter02(0xD99D1c33F9fC3444f8101754aBC46c52416550D1);
-    //Collateral (https://testnet.bnbchain.org/faucet-smart)
-    IERC20 public usdt = IERC20(0x337610d27c682E347C9cD60BD4b3b107C9d34dDd);
+        IAmmRouter02(0xb920817FdFC97fb1ec8eC90Fc8A282c351d35554);
+    IAmmFactory public ammFactory = IAmmFactory(ammRouter.factory());
+    //usdt
+    IERC20 public usdt =
+        IERC20(address(0x55d398326f99059fF775485246999027B3197955));
     //Core token
-    IERC20 public pnsh = IERC20(address(0x0));
+    IERC20 public nsh = IERC20(0x68102693d38b848B7cf5B5A1d2678F63E299198c);
 
-    /*
-    //MAINNET CONTRACTS
-    IAmmFactory ammFactory = IAmmFactory(0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73);
-    IAmmRouter02 ammRouter = IAmmRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
-    //Collateral 
-    IERC20 usdt = IERC20(0x55d398326f99059fF775485246999027B3197955);
-    //Core token
-    IERC20 pnsh = IERC20(0xDC53108a9ef3e4B8cF7EF54dcA044F3995c34729);
-    */
+    IAmmPair public coreLp =
+        IAmmPair(ammFactory.getPair(address(usdt), address(nsh)));
 
     function run() public {
         vm.startBroadcast();
-
         //DO NOT DEPLOY NEW PNSH/USDT CONTRACT IF ONE IS ALREADY ON THE NETWORK (COMMENT OUT)
-        pnsh = new ERC20PresetMinterPauser("test-pNSH", "tpNSH");
-        usdt = new ERC20PresetMinterPauser("test-USDT", "tUSDT");
+        // pnsh = new ERC20PresetMinterPauser("test-pNSH", "tpNSH");
+        // usdt = new ERC20PresetMinterPauser("test-USDT", "tUSDT");
 
         //Pancakeswap dex operations
-        IAmmPair coreLp = IAmmPair(
-            ammFactory.createPair(address(usdt), address(pnsh))
-        );
         AmmTwapOracle oracle = new AmmTwapOracle(address(ammFactory), 4 hours);
-
+        console.log("Oracle address: %s", address(oracle));
         //Create treasuries
         TreasuryConvertible collateralPcrTreasury = new TreasuryConvertible(
             usdt
         );
+        console.log(
+            "Collateral PCR Treasury address: %s",
+            address(collateralPcrTreasury)
+        );
         TreasuryConvertible collateralBufferPool = new TreasuryConvertible(
             usdt
         );
+        console.log(
+            "Collateral Buffer Pool address: %s",
+            address(collateralBufferPool)
+        );
         TreasuryConvertible collateralTreasury = new TreasuryConvertible(usdt);
-        Treasury coreTreasury = new Treasury(pnsh);
-        Treasury coreLpTreasury = new Treasury(pnsh);
+        console.log(
+            "Collateral Treasury address: %s",
+            address(collateralTreasury)
+        );
+        Treasury coreTreasury = new Treasury(nsh);
+        console.log("Core Treasury address: %s", address(coreTreasury));
+        Treasury coreLpTreasury = new Treasury(IERC20(address(coreLp)));
+        console.log("Core LP Treasury address: %s", address(coreLpTreasury));
 
         //Core contracts
         AddressRegistry registry = new AddressRegistry();
+        console.log("Registry address: %s", address(registry));
         FuturesVault futuresVault = new FuturesVault();
+        console.log("Futures Vault address: %s", address(futuresVault));
         Sweeper sweeper = new Sweeper(registry);
+        console.log("Sweeper address: %s", address(sweeper));
         FuturesYieldEngine futuresYieldEngine = new FuturesYieldEngine(
             registry
         );
+        console.log(
+            "Futures Yield Engine address: %s",
+            address(futuresYieldEngine)
+        );
         FuturesEngine futuresEngine = new FuturesEngine(registry);
+        console.log("Futures Engine address: %s", address(futuresEngine));
 
         //Add contracts to registry, where they can be access by the entire ecosystem from one place
         bytes32[] memory registryKeys = new bytes32[](14);
@@ -96,7 +107,7 @@ contract DeployFutures is Script {
         registryVals[4] = address(collateralBufferPool);
         registryVals[5] = address(collateralPcrTreasury);
         registryVals[6] = address(ammRouter);
-        registryVals[7] = address(pnsh);
+        registryVals[7] = address(nsh);
         registryVals[8] = address(coreTreasury);
         registryVals[9] = address(coreLpTreasury);
         registryVals[10] = address(sweeper);
@@ -107,40 +118,43 @@ contract DeployFutures is Script {
 
         //Set whitelistings
 
-        address[] memory toWhitelistOnCollateralTreasury = new address[](1);
-        toWhitelistOnCollateralTreasury[0] = address(sweeper);
-        collateralTreasury.addAddressesToWhitelist(
-            toWhitelistOnCollateralTreasury
-        );
+        address[] memory whitelistAddresses = new address[](1);
+        whitelistAddresses[0] = address(sweeper);
+        collateralTreasury.addAddressesToWhitelist(whitelistAddresses);
 
-        address[] memory toWhitelistOnBufferPool = new address[](1);
-        toWhitelistOnBufferPool[0] = address(futuresYieldEngine);
-        collateralBufferPool.addAddressesToWhitelist(toWhitelistOnBufferPool);
+        whitelistAddresses[0] = address(futuresYieldEngine);
+        collateralBufferPool.addAddressesToWhitelist(whitelistAddresses);
 
-        address[] memory toWhitelistOnCoreTreasury = new address[](1);
-        toWhitelistOnCoreTreasury[0] = address(futuresYieldEngine);
-        coreTreasury.addAddressesToWhitelist(toWhitelistOnCoreTreasury);
+        whitelistAddresses[0] = address(futuresYieldEngine);
+        coreTreasury.addAddressesToWhitelist(whitelistAddresses);
 
-        address[] memory toWhitelistOnFuturesVault = new address[](1);
-        toWhitelistOnFuturesVault[0] = address(futuresEngine);
-        futuresVault.addAddressesToWhitelist(toWhitelistOnFuturesVault);
+        whitelistAddresses[0] = address(futuresEngine);
+        futuresVault.addAddressesToWhitelist(whitelistAddresses);
 
-        address[] memory toWhitelistOnFuturesYieldEngine = new address[](1);
-        toWhitelistOnFuturesYieldEngine[0] = address(futuresEngine);
-        futuresYieldEngine.addAddressesToWhitelist(
-            toWhitelistOnFuturesYieldEngine
-        );
-
-        vm.stopBroadcast();
-
+        whitelistAddresses[0] = address(futuresEngine);
+        futuresYieldEngine.addAddressesToWhitelist(whitelistAddresses);
         //IMPORTANT: These methods need to be called some time after post deployment and the core LP has been added.
         //This sets up the oracle for the purchase and liquidation of the core tokens.
         //NOTE: After the script has run, the sender can mint the test core/collateral tokens to create the LP if those have not been replaced with the actual tokens in the script
-        /*
+        {
+            updateOracleInfo(oracle, futuresYieldEngine);
+        }
+        ////--------------------------------
+        vm.stopBroadcast();
+    }
 
-        futuresYieldEngine.setPathCollateralToCore(path);
-        futuresYieldEngine.updateOracle(oracle);
+    function updateOracleInfo(
+        AmmTwapOracle oracle,
+        FuturesYieldEngine fye
+    ) private {
+        address[] memory path = new address[](2);
+        path[0] = address(usdt);
+        path[1] = address(nsh);
+        fye.setPathCollateralToCore(path);
 
-        */
+        address[] memory whitelistAddresses = new address[](1);
+        whitelistAddresses[0] = address(fye);
+        oracle.addAddressesToWhitelist(whitelistAddresses);
+        fye.updateOracle(oracle);
     }
 }

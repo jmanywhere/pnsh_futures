@@ -131,7 +131,10 @@ contract TestSweeper is Test {
         address[] memory collateralToCorePath = new address[](2);
         collateralToCorePath[0] = address(collateralToken);
         collateralToCorePath[1] = address(coreToken);
-        sweeper.sweep(collateralToCorePath);
+        sweeper.sweep(
+            collateralToCorePath,
+            collateralToken.balanceOf(address(collateralTreasury))
+        );
 
         //all collateral from initial liquidity and from the sweep should be in the lp
         assertEq(collateralToken.balanceOf(address(coreLp)), 200 ether);
